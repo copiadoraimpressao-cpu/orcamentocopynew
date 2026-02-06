@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Orçamentos Profissional</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Montserrat:wght@800&display=swap');
+
+        /* Estilo das Abas */
+        .tab-btn { transition: all 0.3s; border-bottom: 3px solid transparent; }
+        .tab-active { border-bottom-color: #1e40af; color: #1e40af; background: #eff6ff; }
+
+        /* Estilo Papel Timbrado */
+        .folha-a4 {
+            background: white;
+            width: 210mm;
+            min-height: 297mm;
+            margin: 20px auto;
+            padding: 20mm;
+            position: relative;
+            border-top: 15px solid #1e3a8a;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+        }
+
+        /* Carimbo */
+        .carimbo-container {
+            position: absolute;
+            bottom: 150px;
+            right: 80px;
+            transform: rotate(-12deg);
+            z-index: 10;
+            pointer-events: none; /* Deixa clicar nos campos atrás do carimbo */
+        }
+        .carimbo-img { width: 150px; opacity: 0.8; }
+
+        /* Campos Editáveis no Timbrado */
+        .edit-field { border: 1px solid transparent; transition: 0.2s; }
+        .edit-field:hover { border-color: #cbd5e1; background: #f8fafc; }
+        .edit-field:focus { background: #fff; border-color: #3b82f6; outline: none; }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; padding: 0 !important; }
+            .folha-a4 { 
+                margin: 0 !important; 
+                box-shadow: none !important; 
+                width: 100% !important; 
+                border-top-width: 20px !important;
+                -webkit-print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-200 min-h-screen font-sans">
+
+    <nav class="bg-white shadow-sm sticky top-0 z-50 no-print">
+        <div class="max-w-4xl mx-auto flex">
+            <button onclick="switchTab('comum')" id="tab-comum" class="tab-btn tab-active flex-1 py-4 font-bold uppercase text-xs tracking-widest">
+                ⚡ Orçamento Comum
+            </button>
+            <button onclick="switchTab('timbrado')" id="tab-timbrado" class="tab-btn flex-1 py-4 font-bold uppercase text-xs tracking-widest text-gray-400">
+                📄 Orçamento Timbrado
+            </button>
+        </div>
+    </nav>
+
+    <main id="view-comum" class="max-w-4xl mx-auto p-4 md:p-8">
+        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+            <h2 class="text-xl font-bold mb-6 text-gray-800">Novo Orçamento Rápido</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <input type="text" id="c-cliente" placeholder="Nome do Cliente" class="p-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="text" id="c-pix" placeholder="Sua Chave PIX" class="p-3 bg-blue-50 border border-blue-100 rounded-xl text-blue-700 font-bold outline-none">
+            </div>
+
+            <div class="overflow-hidden border rounded-xl mb-4">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b">
+                        <tr>
+                            <th class="p-3 text-left text-xs uppercase text-gray-500">Item / Serviço</th>
+                            <th class="p-3 w-32 text-right text-xs uppercase text-gray-500">Valor (R$)</th>
+                            <th class="p-3 w-10 no-print"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="c-itens"></tbody>
+                </table>
+            </div>
+            <button onclick="addLinhaComum()" class="text-blue-600 font-bold text-sm hover:underline">+ Adicionar Item</button>
+
+            <div class="mt-10 pt-6 border-t flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="text-center md:text-left">
+                    <p class="text-xs text-gray-400 uppercase font-bold">Total Previsto</p>
+                    <span id="c-total" class="text-3xl font-black text-blue-900">R$ 0,00</span>
+                </div>
+                <button onclick="enviarWhats()" class="w-full md:w-auto bg-green-600 text-white px-10 py-4 rounded-xl font-bold shadow-lg hover:bg-green-700 transition uppercase tracking-wider">
+                    Enviar no WhatsApp
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <main id="view-timbrado" class="hidden pb-20">
+        <div class="folha-a4" id="papel-timbrado">
+            
+            <div class="flex justify-between items-start mb-12">
+                <div class="w-2/3">
+                    <img src="logo.png" class="h-20 mb-4" onerror="this.style.display='none'">
+                    <input type="text" value="NOME DA SUA EMPRESA" class="edit-field text-3xl font-black text-blue-900 uppercase block w-full">
+                    <input type="text" value="Seu Endereço, 123 - Cidade/UF" class="edit-field text-sm text-gray-400 block w-full">
+                    <input type="text" value="Contato: (00) 00000-0000" class="edit-field text-sm text-gray-400 block w-full">
+                </div>
+                <div class="text-right">
+                    <h2 class="text-2xl font-light text-gray-300 uppercase tracking-[0.2em] mb-4">Orçamento</h2>
+                    <p class="text-sm font-bold">DATA: <span id="t-data">00/00/2026</span></p>
+                    <p class="text-sm">REF: <span contenteditable="true" class="edit-field px-1">#001</span></p>
+                </div>
+            </div>
+
+            <div class="mb-10 p-6 bg-gray-50 border-r-4 border-blue-900">
+                <p class="text-[10px] font-bold text-blue-900 uppercase mb-2">Cliente / Contratante:</p>
+                <div contenteditable="true" class="edit-field text-xl font-bold uppercase mb-1">NOME DO CLIENTE</div>
+                <div contenteditable="true" class="edit-field text-sm text-gray-600 italic">Endereço da obra ou serviço</div>
+            </div>
+
+            <table class="w-full mb-10">
+                <thead>
+                    <tr class="border-b-2 border-gray-800 text-left text-[10px] uppercase tracking-widest font-bold">
+                        <th class="py-3">Discriminação dos Serviços / Materiais</th>
+                        <th class="py-3 w-20 text-center">Qtd</th>
+                        <th class="py-3 w-32 text-right">Valor Unit.</th>
+                        <th class="py-3 w-32 text-right">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody id="t-itens"></tbody>
+            </table>
+            <button onclick="addLinhaTimbrada()" class="no-print text-xs font-bold text-blue-600 border border-blue-600 px-2 py-1 rounded">+ ITEM</button>
+
+            <div class="flex justify-between items-end mt-20 border-t pt-10">
+                <div class="w-1/2">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase mb-2">Termos e Condições</p>
+                    <div contenteditable="true" class="edit-field text-[11px] text-gray-500 leading-relaxed italic">
+                        • Validade da proposta: 07 dias.<br>
+                        • Forma de pagamento: PIX ou Transferência.<br>
+                        • Prazo de execução: A combinar conforme agenda.
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs font-bold text-gray-400 uppercase mb-1">Total Geral</p>
+                    <h3 class="text-5xl font-black text-blue-900" id="t-total">R$ 0,00</h3>
+                </div>
+            </div>
+
+            <div class="carimbo-container">
+                <img src="carimbo.png" class="carimbo-img" onerror="this.style.display='none'">
+            </div>
+
+            <div class="absolute bottom-10 left-0 right-0 text-center">
+                <div class="w-64 border-t border-gray-300 mx-auto pt-2">
+                    <p class="text-[9px] text-gray-400 uppercase tracking-widest">Assinatura Responsável</p>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="window.print()" class="fixed bottom-8 right-8 bg-blue-900 text-white p-5 rounded-full shadow-2xl hover:scale-110 transition no-print">
+            🖨️ GERAR PDF
+        </button>
+    </main>
+
+    <script>
+        // --- LOGICA DE NAVEGAÇÃO ---
+        function switchTab(aba) {
+            document.getElementById('view-comum').classList.toggle('hidden', aba !== 'comum');
+            document.getElementById('view-timbrado').classList.toggle('hidden', aba !== 'timbrado');
+            
+            document.getElementById('tab-comum').classList.toggle('tab-active', aba === 'comum');
+            document.getElementById('tab-timbrado').classList.toggle('tab-active', aba === 'timbrado');
+            
+            document.body.className = (aba === 'timbrado') ? "bg-gray-600 min-h-screen" : "bg-gray-200 min-h-screen";
+        }
+
+        // --- ABA COMUM ---
+        function addLinhaComum() {
+            const tr = document.createElement('tr');
+            tr.className = "border-b";
+            tr.innerHTML = `
+                <td class="p-2"><input type="text" placeholder="Ex: Mão de obra" class="w-full bg-transparent outline-none text-sm"></td>
+                <td class="p-2"><input type="number" placeholder="0.00" oninput="calcComum()" class="w-full text-right bg-transparent outline-none font-bold val-c"></td>
+                <td class="p-2 text-center no-print"><button onclick="this.closest('tr').remove();calcComum()" class="text-red-300">✕</button></td>
+            `;
+            document.getElementById('c-itens').appendChild(tr);
+        }
+
+        function calcComum() {
+            let total = 0;
+            document.querySelectorAll('.val-c').forEach(i => total += (parseFloat(i.value) || 0));
+            document.getElementById('c-total').innerText = total.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+        }
+
+        function enviarWhats() {
+            const cliente = document.getElementById('c-cliente').value || "Cliente";
+            const total = document.getElementById('c-total').innerText;
+            const pix = document.getElementById('c-pix').value;
+            let msg = `*ORÇAMENTO RÁPIDO*\n\nOlá ${cliente}!\n\n`;
+            document.querySelectorAll('#c-itens tr').forEach(tr => {
+                const desc = tr.querySelector('input[type="text"]').value;
+                const valor = parseFloat(tr.querySelector('.val-c').value) || 0;
+                if(desc) msg += `• ${desc}: R$ ${valor.toFixed(2)}\n`;
+            });
+            msg += `\n*TOTAL: ${total}*\n`;
+            if(pix) msg += `🔑 PIX: ${pix}`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
+        }
+
+        // --- ABA TIMBRADA ---
+        document.getElementById('t-data').innerText = new Date().toLocaleDateString('pt-BR');
+
+        function addLinhaTimbrada() {
+            const tr = document.createElement('tr');
+            tr.className = "border-b border-gray-100";
+            tr.innerHTML = `
+                <td class="py-4 edit-field" contenteditable="true">Descrição do serviço especializado...</td>
+                <td class="py-4 text-center"><input type="number" value="1" oninput="calcTimbrado()" class="w-full text-center bg-transparent outline-none"></td>
+                <td class="py-4 text-right"><input type="number" value="0.00" step="0.01" oninput="calcTimbrado()" class="w-full text-right bg-transparent outline-none font-bold val-t"></td>
+                <td class="py-4 text-right font-bold sub-t text-blue-900">R$ 0,00</td>
+            `;
+            document.getElementById('t-corpo-itens'); // Apenas referência
+            document.getElementById('t-itens').appendChild(tr);
+        }
+
+        function calcTimbrado() {
+            let total = 0;
+            document.querySelectorAll('#t-itens tr').forEach(tr => {
+                const q = tr.querySelector('input[type="number"]').value || 0;
+                const v = tr.querySelector('.val-t').value || 0;
+                const sub = q * v;
+                tr.querySelector('.sub-t').innerText = sub.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+                total += sub;
+            });
+            document.getElementById('t-total').innerText = total.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+        }
+
+        // Iniciar
+        addLinhaComum();
+        addLinhaTimbrada();
+    </script>
+</body>
+</html>
